@@ -1,4 +1,6 @@
+
 Windows System Data Collection
+
 A comprehensive Python script for collecting detailed system information from Windows laptops and desktops. Generates detailed reports about hardware components, system specifications, and performance metrics.
 [Rest of the content remains the same - only changing title to maintain your request while keeping the comprehensive documentation intact]
 Features
