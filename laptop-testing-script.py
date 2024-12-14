@@ -29,17 +29,22 @@ def get_system_info():
         
         serial = subprocess.check_output("wmic bios get serialnumber", shell=True).decode()
         serial = serial.split('\n')[1].strip()
+        
+        # Add product number retrieval
+        product_number = subprocess.check_output("wmic baseboard get product", shell=True).decode()
+        product_number = product_number.split('\n')[1].strip()
     except:
         manufacturer = "Unknown"
         model = "Unknown"
         serial = "Unknown"
+        product_number = "Unknown"
 
     system_info += f"Manufacturer: {manufacturer}\n"
     system_info += f"Model: {model}\n"
     system_info += f"Serial Number: {serial}\n"
+    system_info += f"Product Number: {product_number}\n"
 
     return system_info
-
 def get_cpu_info():
     cpu_info = "CPU Information:\n"
     
