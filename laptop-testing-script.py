@@ -6,20 +6,35 @@ import os
 from datetime import datetime
 import re
 import subprocess
+import cv2  # For webcam detection
+from screeninfo import get_monitors  # For screen resolution
 
 def get_system_info():
     system_info = "System Information:\n"
 
     # Get basic system information
     system = platform.system()
-    release = platform.release()
-    version = platform.version()
+    
+    # Better Windows version detection
+    try:
+        reg_key = subprocess.check_output("reg query \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" /v CurrentBuild", shell=True).decode()
+        build_number = int(reg_key.split()[-1])
+        
+        # Windows 11 started from build 22000
+        if system == "Windows" and build_number >= 22000:
+            system_info += "Operating System: Windows 11\n"
+        else:
+            system_info += f"Operating System: {system}\n"
+            
+        system_info += f"OS Build Number: {build_number}\n"
+        
+    except:
+        # Fallback to platform info if reg query fails
+        system_info += f"Operating System: {system}\n"
+        system_info += f"OS Release: {platform.release()}\n"
+        system_info += f"OS Version: {platform.version()}\n"
 
-    system_info += f"Operating System: {system}\n"
-    system_info += f"OS Release: {release}\n"
-    system_info += f"OS Version: {version}\n"
-
-    # Get detailed computer system information using wmic for Windows
+    # Rest of the system info gathering remains the same
     try:
         manufacturer = subprocess.check_output("wmic computersystem get manufacturer", shell=True).decode()
         manufacturer = manufacturer.split('\n')[1].strip()
@@ -30,7 +45,6 @@ def get_system_info():
         serial = subprocess.check_output("wmic bios get serialnumber", shell=True).decode()
         serial = serial.split('\n')[1].strip()
         
-        # Add product number retrieval
         product_number = subprocess.check_output("wmic baseboard get product", shell=True).decode()
         product_number = product_number.split('\n')[1].strip()
     except:
@@ -45,6 +59,7 @@ def get_system_info():
     system_info += f"Product Number: {product_number}\n"
 
     return system_info
+
 def get_cpu_info():
     cpu_info = "CPU Information:\n"
     
@@ -180,6 +195,76 @@ def get_battery_health():
     
     return battery_info
 
+def get_display_info():
+    display_info = "Display Information:\n"
+    try:
+        monitors = get_monitors()
+        for i, monitor in enumerate(monitors, 1):
+            display_info += f"Display {i}:\n"
+            display_info += f"Name: {monitor.name}\n"
+            display_info += f"Resolution: {monitor.width}x{monitor.height}\n"
+            if hasattr(monitor, 'refresh_rate') and monitor.refresh_rate:
+                display_info += f"Refresh Rate: {monitor.refresh_rate}Hz\n"
+    except Exception:
+        try:
+            result = subprocess.check_output("wmic path Win32_VideoController get VideoModeDescription,CurrentRefreshRate", shell=True).decode()
+            if result.strip():
+                display_info += result
+        except:
+            display_info += "Unable to retrieve display information\n"
+    
+    return display_info
+
+def get_webcam_info():
+    webcam_info = "Webcam Information:\n"
+    try:
+        webcam_list = []
+        index = 0
+        
+        while True:
+            cap = cv2.VideoCapture(index)
+            if not cap.isOpened():
+                break
+            
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            
+            webcam_list.append({
+                'index': index,
+                'resolution': f"{width}x{height}",
+                'fps': fps
+            })
+            
+            cap.release()
+            index += 1
+        
+        if webcam_list:
+            for cam in webcam_list:
+                webcam_info += f"Webcam {cam['index']}:\n"
+                webcam_info += f"Resolution: {cam['resolution']}\n"
+                webcam_info += f"FPS: {cam['fps']}\n"
+        else:
+            webcam_info += "No webcams detected\n"
+            
+        if platform.system() == 'Windows':
+            try:
+                result = subprocess.check_output("wmic path Win32_PnPEntity where (deviceid like '%USB%') get caption", shell=True).decode()
+                webcam_devices = list(set([line.strip() for line in result.split('\n') if 'camera' in line.lower() or 'webcam' in line.lower()]))
+                
+                if webcam_devices:
+                    webcam_info += "Detected Webcam Devices:\n"
+                    for device in webcam_devices:
+                        if device:
+                            webcam_info += f"{device}\n"
+            except:
+                pass
+                
+    except Exception as e:
+        webcam_info += f"Errors detecting webcams: {str(e)}\n"
+    
+    return webcam_info
+
 def main():
     print("\nGathering laptop information...")
     
@@ -191,6 +276,8 @@ def main():
     info += get_gpu_info() + "\n"
     info += get_detailed_io_info() + "\n"
     info += get_battery_health() + "\n"
+    info += get_display_info() + "\n"
+    info += get_webcam_info() + "\n"
     
     # Get the path to the user's Documents folder
     documents_path = os.path.expanduser("~/Documents")
