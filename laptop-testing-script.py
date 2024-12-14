@@ -120,10 +120,59 @@ def get_detailed_io_info():
 def get_battery_health():
     battery_info = "Battery Health Information:\n"
     try:
-        result = subprocess.check_output("wmic path win32_battery get name,estimatedchargeremaining", shell=True).decode()
-        battery_info += result
+        # Get basic battery information using psutil
+        battery = psutil.sensors_battery()
+        if battery:
+            battery_info += f"Battery percentage: {battery.percent}%\n"
+            battery_info += f"Power plugged in: {battery.power_plugged}\n"
+            if battery.secsleft != -1:
+                hours = battery.secsleft // 3600
+                minutes = (battery.secsleft % 3600) // 60
+                battery_info += f"Time left: {hours}h {minutes}m\n"
+        
+        # Try using powercfg for more detailed battery report
+        try:
+            # Generate battery report
+            report_path = os.path.join(os.getenv('TEMP'), 'battery-report.xml')
+            subprocess.run(['powercfg', '/batteryreport', '/xml', '/output', report_path], capture_output=True)
+            
+            if os.path.exists(report_path):
+                with open(report_path, 'r') as f:
+                    report_content = f.read()
+                    
+                # Parse design capacity and current capacity from the XML
+                design_pattern = r'<DesignCapacity>(\d+)</DesignCapacity>'
+                current_pattern = r'<FullChargeCapacity>(\d+)</FullChargeCapacity>'
+                
+                design_match = re.search(design_pattern, report_content)
+                current_match = re.search(current_pattern, report_content)
+                
+                if design_match and current_match:
+                    design_cap = int(design_match.group(1))
+                    current_cap = int(current_match.group(1))
+                    
+                    wear_level = ((design_cap - current_cap) / design_cap) * 100
+                    battery_info += f"\nBattery Design Capacity: {design_cap} mWh\n"
+                    battery_info += f"Current Full Capacity: {current_cap} mWh\n"
+                    battery_info += f"Battery Wear Level: {wear_level:.2f}%\n"
+                    
+                    # Add health status assessment
+                    if wear_level < 20:
+                        battery_info += "Battery Health Status: Good\n"
+                    elif wear_level < 40:
+                        battery_info += "Battery Health Status: Fair\n"
+                    else:
+                        battery_info += "Battery Health Status: Poor - Consider replacement\n"
+                
+                # Clean up the temporary file
+                os.remove(report_path)
+            
+        except Exception as e:
+            battery_info += f"\nCould not generate detailed battery report: {str(e)}\n"
+            
     except Exception as e:
         battery_info += f"Error retrieving battery information: {str(e)}\n"
+    
     return battery_info
 
 def main():
