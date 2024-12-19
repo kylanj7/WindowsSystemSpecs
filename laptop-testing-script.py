@@ -266,6 +266,9 @@ def get_webcam_info():
     return webcam_info
 
 def main():
+    # Ask for project name at the beginning
+    project_name = input("Enter project name: ")
+    
     print("\nGathering laptop information...")
     
     info = "Laptop Testing Script Results\n"
@@ -282,8 +285,8 @@ def main():
     # Get the path to the user's Documents folder
     documents_path = os.path.expanduser("~/Documents")
     
-    # Create a filename with the current date and time
-    filename = f"laptop_info_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    # Create a filename with the project name and current date/time
+    filename = f"{project_name}_laptop_info_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     
     # Full path to the output file
     file_path = os.path.join(documents_path, filename)
